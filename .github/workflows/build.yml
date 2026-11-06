@@ -1,0 +1,53 @@
+name: Build LuaTool APK
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # If you uploaded the project as a single zip (easiest on a phone), unpack it first.
+      - name: Unpack luatool.zip if present
+        run: |
+          if [ -f luatool.zip ]; then
+            unzip -o luatool.zip -d _src
+            cp -r _src/luatool/. .
+          fi
+
+      # Real Lua 5.3 interpreter (C sources) - compiled into the app by the NDK.
+      - name: Fetch Lua 5.3.6 sources
+        run: sh app/src/main/cpp/fetch_lua.sh
+
+      - name: Install NDK + CMake
+        run: |
+          SDKM="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          [ -x "$SDKM" ] || SDKM="$(ls $ANDROID_HOME/cmdline-tools/*/bin/sdkmanager | head -1)"
+          yes | "$SDKM" --licenses > /dev/null || true
+          "$SDKM" "ndk;26.1.10909125" "cmake;3.22.1"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: Build debug APK
+        run: gradle assembleDebug --no-daemon --stacktrace
+
+      - name: Check that the native Lua library is inside the APK
+        run: |
+          for apk in app/build/outputs/apk/debug/*.apk; do
+            unzip -l "$apk" | grep liblua53jni.so
+          done
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LuaTool-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
