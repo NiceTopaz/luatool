@@ -1,0 +1,51 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.luatool.app'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.luatool.app"
+        minSdk 21
+        // Deliberately old: keeps legacy storage/overlay behaviour and works best inside virtual environments.
+        targetSdk 28
+        versionCode 2
+        versionName "1.1"
+
+        // Native Lua 5.3 (see src/main/cpp). Only built when the Lua sources are present (workflow fetches them).
+        if (file('src/main/cpp/lua/lua.h').exists()) {
+            ndk {
+                abiFilters 'armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64'
+            }
+        }
+    }
+
+    if (file('src/main/cpp/lua/lua.h').exists()) {
+        ndkVersion '26.1.10909125'
+        externalNativeBuild {
+            cmake {
+                path 'src/main/cpp/CMakeLists.txt'
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
+    lint {
+        abortOnError false
+        checkReleaseBuilds false
+    }
+}
+// No Maven dependencies. LuaJ (vendored under org/luaj) is the Lua 5.2 fallback engine; the main engine is the
+// real Lua 5.3 interpreter built from C by the NDK (armeabi-v7a, arm64-v8a, x86, x86_64).
